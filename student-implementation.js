@@ -111,7 +111,7 @@ async function fetchNews() {
  * @returns {Promise<string>} - Generated podcast script
  */
 async function generateScript(articles) {
-    helpers.logStep(2, 'Generating podcast script with OpenAI');
+    helpers.logStep(2, 'Generating podcast script with Gemini');
     
     try {
         // TODO: Format articles for the AI
@@ -124,47 +124,26 @@ async function generateScript(articles) {
         
         // TODO: Define the OpenAI endpoint
         // HINT: https://api.openai.com/v1/chat/completions
-        const url = `https://api.openai.com/v1/chat/completions`;
-        
-        // TODO: Set up request headers
-        // HINT: Need Authorization: Bearer YOUR_API_KEY and Content-Type: application/json
-        const headers = {
-            Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
-            'Content-Type': 'application/json'
-        };
-        
-        // TODO: Create the request body
-        // HINT: Need model (use 'gpt-3.5-turbo'), messages array, temperature (0.7), max_tokens (500)
-        const data = {
-            model: 'gpt-3.5-turbo',
-            messages: [
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            temperature: 0.7,
-            max_tokens: 500
-        };
-        
-        // TODO: Make the POST request
-        // HINT: await axios.post(url, data, { headers })
-        const response = null;
-        await axios.post(url, data, { headers });
-        
-        // TODO: Extract the script text
-        // HINT: response.data.choices[0].message.content
-        const script = 'response.data.choices[0].message.content';
-        
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+        // TODO: Create the request body        
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: prompt,
+            generationConfig: {
+                maxOutputTokens: 800,
+                temperature: 0.7
+            }
+        });
+        const script = response?.response?.text || '';
+        if (!script) throw new Error("No script found");
+
         helpers.logSuccess('Podcast script generated');
         console.log(`   Script length: ${script.length} characters`);
-        
-        // TODO: Save the script to a file
-        // HINT: Use helpers.saveTextFile(script, 'podcast-script.txt')
-        
+
         helpers.saveTextFile(script, 'podcast-script.txt');
         return script;
-        
     } catch (error) {
         helpers.handleApiError(error, 'Gemini');
         throw new Error('Failed to generate podcast script');
@@ -204,12 +183,11 @@ async function generateAudio(text) {
     try {
         // TODO: Get the voice ID from environment or use default
         // HINT: process.env.PODCAST_VOICE_ID || '21m00Tcm4TlvDq8ikWAM'
-        const voiceId = '21m00Tcm4TlvDq8ikWAM';
+        const voiceId = process.env.PODCAST_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
         
         // TODO: Construct the URL with voice ID
         // HINT: `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`
-        const url = '';
-        
+        const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
         // TODO: Set up headers (IMPORTANT: ElevenLabs uses 'xi-api-key', not 'Authorization'!)
         const headers = {
             'xi-api-key': process.env.ELEVENLABS_API_KEY,
@@ -229,16 +207,16 @@ async function generateAudio(text) {
         
         // TODO: Make the POST request (IMPORTANT: Must use responseType: 'arraybuffer'!)
         // HINT: await axios.post(url, data, { headers, responseType: 'arraybuffer' })
-        const response = null;
+        const response = await axios.post(url, data, {headers, responseType: 'arraybuffer'});
         
         // TODO: Generate a filename with timestamp
         // HINT: Use helpers.generateTimestampedFilename('podcast', 'mp3')
-        const filename = 'podcast.mp3';
+        const filename = helpers.generateTimestampedFilename('podcast', 'mp3');
         
         // TODO: Save the audio file
         // HINT: Use helpers.saveAudioFile(response.data, filename)
-        const filePath = 'helpers.saveAudioFile(response.data, filename)';
-        
+        const filePath = helpers.saveAudioFile(response.data, filename);
+
         helpers.logSuccess(`Audio generated: ${filename}`);
         
         return filePath;
