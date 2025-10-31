@@ -114,30 +114,41 @@ async function generateScript(articles) {
     helpers.logStep(2, 'Generating podcast script with Gemini');
     
     try {
-        // TODO: Format articles for the AI
-        // HINT: Use helpers.formatArticlesForSummary(articles)
-        const formattedNews = 'helpers.formatArticlesForSummary(articles)';
+    // TODO: Format articles for the AI
+    // HINT: Use helpers.formatArticlesForSummary(articles)
+    const formattedNews = helpers.formatArticlesForSummary(articles);
         
-        // TODO: Create the AI prompt
-        // HINT: Use helpers.createPodcastPrompt(formattedNews)
-        const prompt = 'helpers.createPodcastPrompt(formattedNews)';
+    // TODO: Create the AI prompt
+    // HINT: Use helpers.createPodcastPrompt(formattedNews)
+    const prompt = helpers.createPodcastPrompt(formattedNews);
         
         // TODO: Define the OpenAI endpoint
         // HINT: https://api.openai.com/v1/chat/completions
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
         // TODO: Create the request body        
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: prompt,
+        const data = {
+            contents: [
+                {
+                    role: 'user',
+                    parts: [{ text: prompt }]
+                }
+            ],
             generationConfig: {
                 maxOutputTokens: 800,
                 temperature: 0.7
             }
+        };
+
+        const response = await axios.post(url, data, {
+            params: { key: process.env.GEMINI_API_KEY },
+            headers: { 'Content-Type': 'application/json' }
         });
-        const script = response?.response?.text || '';
-        if (!script) throw new Error("No script found");
+
+        const script = (response && response.data && response.data.candidates && response.data.candidates[0] && response.data.candidates[0].content && response.data.candidates[0].content.parts)
+            ? response.data.candidates[0].content.parts.map(p => p.text || '').join('')
+            : '';
+        if (!script) throw new Error('No script found');
 
         helpers.logSuccess('Podcast script generated');
         console.log(`   Script length: ${script.length} characters`);
@@ -183,7 +194,7 @@ async function generateAudio(text) {
     try {
         // TODO: Get the voice ID from environment or use default
         // HINT: process.env.PODCAST_VOICE_ID || '21m00Tcm4TlvDq8ikWAM'
-        const voiceId = process.env.PODCAST_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+        const voiceId = '21m00Tcm4TlvDq8ikWAM';
         
         // TODO: Construct the URL with voice ID
         // HINT: `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`
@@ -273,8 +284,8 @@ async function generatePodcast() {
         
         // TODO: Fetch news articles
         // HINT: await fetchNews()
-        const articles = null;
-        
+        const articles = await fetchNews();
+
         // TODO: Validate we got articles
         if (!articles || articles.length === 0) {
             throw new Error('No articles fetched');
@@ -282,8 +293,8 @@ async function generatePodcast() {
         
         // TODO: Generate podcast script
         // HINT: await generateScript(articles)
-        const script = null;
-        
+        const script = await generateScript(articles);
+
         // TODO: Validate we got a script
         if (!script || script.length === 0) {
             throw new Error('No script generated');
@@ -291,8 +302,8 @@ async function generatePodcast() {
         
         // TODO: Generate audio
         // HINT: await generateAudio(script)
-        const audioFilePath = null;
-        
+        const audioFilePath = await generateAudio(script);
+
         // TODO: Validate we got an audio file
         if (!audioFilePath) {
             throw new Error('No audio file generated');
